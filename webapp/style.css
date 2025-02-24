@@ -274,3 +274,15 @@ button:disabled {
       flex-basis: 100%;
   }
 }
+
+.bg-pale-green {
+  background-color: #e8f5e9;  /* Pale green color */
+}
+
+.bg-pale-yellow {
+  background-color: #fffde7;  /* Pale yellow color */
+}
+
+.bg-none {
+  background-color: transparent;
+}

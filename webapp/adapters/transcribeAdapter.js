@@ -70,10 +70,11 @@ export async function getAmazonTranscribeClientCustomer() {
   }
 }
 
-export async function startCustomerStreamTranscription(audioStream, languageCode, onTranscribeEvent) {
+export async function startCustomerStreamTranscription(audioStream, languageCode, onFinalTranscribeEvent, onPartialTranscribeEvent) {
   if (isObjectUndefinedNullEmpty(audioStream)) throw new Error("audioStream is required");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
-  if (isFunction(onTranscribeEvent)) throw new Error("onTranscribeEvent is required");
+  if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
+  if (isFunction(onPartialTranscribeEvent)) throw new Error("onPartialTranscribeEvent is required");
 
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
     LanguageCode: languageCode,
@@ -87,17 +88,23 @@ export async function startCustomerStreamTranscription(audioStream, languageCode
 
   for await (const event of startStreamTranscriptionResponse.TranscriptResultStream) {
     const results = event.TranscriptEvent.Transcript.Results;
-    if (results.length && !results[0]?.IsPartial) {
-      const newTranscript = results[0].Alternatives[0].Transcript;
-      onTranscribeEvent(newTranscript);
+    if (results?.length > 0) {
+      if (results[0]?.IsPartial === true) {
+        const partialTranscript = results[0].Alternatives[0].Transcript;
+        onPartialTranscribeEvent(partialTranscript);
+      } else {
+        const newTranscript = results[0].Alternatives[0].Transcript;
+        onFinalTranscribeEvent(newTranscript);
+      }
     }
   }
 }
 
-export async function startAgentStreamTranscription(audioStream, languageCode, onTranscribeEvent) {
+export async function startAgentStreamTranscription(audioStream, languageCode, onFinalTranscribeEvent, onPartialTranscribeEvent) {
   if (isObjectUndefinedNullEmpty(audioStream)) throw new Error("audioStream is required");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
-  if (isFunction(onTranscribeEvent)) throw new Error("onTranscribeEvent is required");
+  if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
+  if (isFunction(onPartialTranscribeEvent)) throw new Error("onPartialTranscribeEvent is required");
 
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
     LanguageCode: languageCode,
@@ -111,9 +118,14 @@ export async function startAgentStreamTranscription(audioStream, languageCode, o
 
   for await (const event of startStreamTranscriptionResponse.TranscriptResultStream) {
     const results = event.TranscriptEvent.Transcript.Results;
-    if (results.length && !results[0]?.IsPartial) {
-      const newTranscript = results[0].Alternatives[0].Transcript;
-      onTranscribeEvent(newTranscript);
+    if (results?.length > 0) {
+      if (results[0]?.IsPartial === true) {
+        const partialTranscript = results[0].Alternatives[0].Transcript;
+        onPartialTranscribeEvent(partialTranscript);
+      } else {
+        const newTranscript = results[0].Alternatives[0].Transcript;
+        onFinalTranscribeEvent(newTranscript);
+      }
     }
   }
 }

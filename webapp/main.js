@@ -410,6 +410,9 @@ function onContactConnecting(contact) {
 
 function onContactConnected(contact) {
   console.info(`${LOGGER_PREFIX} - contact connected`, contact);
+
+  CCP_V2V.UI.customerStartTranscriptionButton.disabled = false;
+  CCP_V2V.UI.agentStartTranscriptionButton.disabled = false;
 }
 
 function onContactEnded(contact) {
@@ -681,9 +684,14 @@ async function customerStartTranscription() {
     const toCustomerAudioTrack = ToCustomerAudioStreamManager.getAudioTrack();
     RTCSessionTrackManager.replaceTrack(toCustomerAudioTrack, TrackType.POLLY);
 
-    //getting the remote audio stream from the current RTC session into AmazonTranscribeAudioStream variable
+    //getting the remote audio stream from the current RTC session into AmazonTranscribeFromCustomerAudioStream variable
     AmazonTranscribeFromCustomerAudioStream = await captureFromCustomerAudioStream();
-    startCustomerStreamTranscription(AmazonTranscribeFromCustomerAudioStream, customerTranscribeLanguageSelect.value, handleCustomerTranscript);
+    startCustomerStreamTranscription(
+      AmazonTranscribeFromCustomerAudioStream,
+      customerTranscribeLanguageSelect.value,
+      handleCustomerTranscript,
+      handleCustomerPartialTranscript
+    );
 
     CCP_V2V.UI.customerStartTranscriptionButton.disabled = true;
     CCP_V2V.UI.customerStopTranscriptionButton.disabled = false;
@@ -695,6 +703,10 @@ async function customerStartTranscription() {
 
 async function customerStopTranscription() {
   if (AmazonTranscribeFromCustomerAudioStream) {
+    //replace the stream with a silent stream
+    const audioContext = new AudioContext();
+    const silentStream = audioContext.createMediaStreamDestination().stream;
+    AmazonTranscribeFromCustomerAudioStream.setStream(silentStream);
     AmazonTranscribeFromCustomerAudioStream.stop();
     AmazonTranscribeFromCustomerAudioStream.destroy();
     AmazonTranscribeFromCustomerAudioStream = undefined;
@@ -727,7 +739,12 @@ async function agentStartTranscription() {
 
     //getting the local Mic stream into AmazonTranscribeMicStream variable
     AmazonTranscribeToCustomerAudioStream = await createMicrophoneStream(selectedMic);
-    startAgentStreamTranscription(AmazonTranscribeToCustomerAudioStream, agentTranscribeLanguageSelect.value, handleAgentTranscript);
+    startAgentStreamTranscription(
+      AmazonTranscribeToCustomerAudioStream,
+      agentTranscribeLanguageSelect.value,
+      handleAgentTranscript,
+      handleAgentPartialTranscript
+    );
 
     CCP_V2V.UI.agentStartTranscriptionButton.disabled = true;
     CCP_V2V.UI.agentStopTranscriptionButton.disabled = false;
@@ -739,6 +756,10 @@ async function agentStartTranscription() {
 
 function agentStopTranscription() {
   if (AmazonTranscribeToCustomerAudioStream) {
+    //replace the stream with a silent stream
+    const audioContext = new AudioContext();
+    const silentStream = audioContext.createMediaStreamDestination().stream;
+    AmazonTranscribeToCustomerAudioStream.setStream(silentStream);
     AmazonTranscribeToCustomerAudioStream.stop();
     AmazonTranscribeToCustomerAudioStream.destroy();
     AmazonTranscribeToCustomerAudioStream = undefined;
@@ -811,19 +832,23 @@ async function loadTranslateLanguageCodes() {
   }
 }
 
+async function handleCustomerPartialTranscript(inputText) {
+  if (isStringUndefinedNullEmpty(inputText)) return;
+  //update CCP_V2V.UI.customerTranscriptionTextOutputDiv.textContent after 100ms
+  setTimeout(() => {
+    setBackgroundColour(CCP_V2V.UI.customerTranscriptionTextOutputDiv, "bg-pale-yellow");
+    CCP_V2V.UI.customerTranscriptionTextOutputDiv.textContent = inputText;
+  }, 100);
+}
+
 async function handleCustomerTranscript(inputText) {
   if (isStringUndefinedNullEmpty(inputText)) return;
 
   //update CCP_V2V.UI.customerTranscriptionTextOutputDiv.textContent after 100ms
   setTimeout(() => {
+    setBackgroundColour(CCP_V2V.UI.customerTranscriptionTextOutputDiv, "bg-pale-green");
     CCP_V2V.UI.customerTranscriptionTextOutputDiv.textContent = inputText;
   }, 100);
-
-  //log transcript request timestamp
-  // const timestamp = new Date().toISOString();
-  // console.info(
-  //   `${LOGGER_PREFIX} - handleCustomerTranscript - Transcript received at ${timestamp}`
-  // );
 
   const fromLanguage = CCP_V2V.UI.customerTranslateFromLanguageSelect.value;
   const toLanguage = CCP_V2V.UI.customerTranslateToLanguageSelect.value;
@@ -834,24 +859,21 @@ async function handleCustomerTranscript(inputText) {
   });
 
   if (!isStringUndefinedNullEmpty(translatedText)) {
-    //log translated transcript request timestamp
-    // const timestamp2 = new Date().toISOString();
-    // console.info(
-    //   `${LOGGER_PREFIX} - handleCustomerTranscript - Translated transcript received at ${timestamp2}`
-    // );
-
-    //log how long it took to translate
-    // const timeDiff = new Date(timestamp2) - new Date(timestamp);
-    // console.info(
-    //   `${LOGGER_PREFIX} - handleCustomerTranscript - Translation took ${timeDiff}ms`
-    // );
-
     synthesizeCustomerVoice(translatedText);
     //update CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent after 100ms
     setTimeout(() => {
       CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent = translatedText;
     }, 100);
   }
+}
+
+async function handleAgentPartialTranscript(inputText) {
+  if (isStringUndefinedNullEmpty(inputText)) return;
+  //update CCP_V2V.UI.agentTranscriptionTextOutputDiv.textContent after 100ms
+  setTimeout(() => {
+    setBackgroundColour(CCP_V2V.UI.agentTranscriptionTextOutputDiv, "bg-pale-yellow");
+    CCP_V2V.UI.agentTranscriptionTextOutputDiv.textContent = inputText;
+  }, 100);
 }
 
 async function handleAgentTranslateText() {
@@ -878,6 +900,7 @@ async function handleAgentTranscript(inputText) {
 
   //update CCP_V2V.UI.agentTranscriptionTextOutputDiv.textContent after 100ms
   setTimeout(() => {
+    setBackgroundColour(CCP_V2V.UI.agentTranscriptionTextOutputDiv, "bg-pale-green");
     CCP_V2V.UI.agentTranscriptionTextOutputDiv.textContent = inputText;
   }, 100);
 
@@ -1011,18 +1034,6 @@ async function synthesizeCustomerVoice(inputText) {
   });
   if (!synthetizedSpeech) return;
 
-  //log synth response timestamp
-  // const timestamp2 = new Date().toISOString();
-  // console.info(
-  //   `${LOGGER_PREFIX} - synthesizeCustomerVoice - Synth response received at ${timestamp2}`
-  // );
-
-  //log how much it took to synth
-  // const timeDiff = new Date(timestamp2) - new Date(timestamp);
-  // console.info(
-  //   `${LOGGER_PREFIX} - synthesizeCustomerVoice - Synth took ${timeDiff} ms`
-  // );
-
   //Play Customer Speech to Agent
   const audioContentArrayBufferPrimary = base64ToArrayBuffer(synthetizedSpeech);
   if (ToAgentAudioStreamManager != null) {
@@ -1077,15 +1088,31 @@ async function handleAgentSynthesizeSpeech() {
 }
 
 function cleanUpUI() {
-  CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent = "";
   CCP_V2V.UI.customerTranscriptionTextOutputDiv.textContent = "";
+  setBackgroundColour(CCP_V2V.UI.customerTranscriptionTextOutputDiv);
+  CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent = "";
 
   CCP_V2V.UI.agentTranscriptionTextOutputDiv.textContent = "";
-  CCP_V2V.UI.agentTranslateTextInput.value = "";
+  setBackgroundColour(CCP_V2V.UI.agentTranscriptionTextOutputDiv);
   CCP_V2V.UI.agentTranslatedTextOutputDiv.textContent = "";
+
+  CCP_V2V.UI.agentTranslateTextInput.value = "";
   CCP_V2V.UI.agentPollyTextInput.value = "";
+
+  CCP_V2V.UI.customerStartTranscriptionButton.disabled = true;
+  CCP_V2V.UI.agentStartTranscriptionButton.disabled = true;
 }
 
 function raiseError(errorMessage) {
   alert(`${errorMessage}`);
+}
+
+function setBackgroundColour(element, cssClass) {
+  // Remove all background classes first
+  element.classList.remove("bg-pale-green", "bg-pale-yellow", "bg-none");
+
+  // Add the requested background if specified
+  if (cssClass) {
+    element.classList.add(cssClass);
+  }
 }
