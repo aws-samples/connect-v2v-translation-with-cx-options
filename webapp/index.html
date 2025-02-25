@@ -70,7 +70,7 @@
         </div>
         <div id="rightColumn">
           <section id="transcribeTranslate">
-            <div class="participant-controls">
+            <div id="divCustomerControls" class="participant-controls">
               <h2>Customer Controls</h2>
               <div class="control-group-transcribe">
                 <h3>Transcribe Customer Voice</h3>
@@ -147,7 +147,7 @@
               </div>
             </div>
 
-            <div class="participant-controls">
+            <div id="divAgentControls" class="participant-controls">
               <h2>Agent Controls</h2>
               <div class="control-group-transcribe">
                 <h3>Transcribe Agent Voice</h3>
@@ -229,6 +229,16 @@
                 <div class="input-group">
                   <input type="text" id="agentPollyTextInput" placeholder="Enter text for Amazon Polly" />
                   <button id="agentSynthesizeSpeechButton">Synthesize Speech</button>
+                </div>
+              </div>
+            </div>
+
+            <div id="divTranscription" class="participant-controls">
+              <h2>Transcription</h2>
+              <div class="control-group-transcription">
+                <div id="divTranscriptContainer" class="transcript-container">
+                  <div class="transcript-spacer"></div>
+                  <!-- Transcript messages will be added here dynamically -->
                 </div>
               </div>
             </div>

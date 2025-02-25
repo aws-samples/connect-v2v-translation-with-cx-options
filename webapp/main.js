@@ -202,6 +202,9 @@ const bindUIElements = () => {
     agentPollyVoiceIdSaveButton: document.getElementById("agentPollyVoiceIdSaveButton"),
     agentPollyTextInput: document.getElementById("agentPollyTextInput"),
     agentSynthesizeSpeechButton: document.getElementById("agentSynthesizeSpeechButton"),
+
+    //Transcript UI Elements
+    divTranscriptContainer: document.getElementById("divTranscriptContainer"),
   };
 };
 
@@ -400,6 +403,7 @@ function subscribeToContactEvents() {
     contact.onConnecting(onContactConnecting);
     contact.onConnected(onContactConnected);
     contact.onEnded(onContactEnded);
+    contact.onDestroy(onContactDestroyed);
     // contact.onRefresh(contactRefreshed);
   });
 }
@@ -433,6 +437,12 @@ function onContactEnded(contact) {
   customerStopTranscription();
   agentStopTranscription();
   cleanUpUI();
+}
+
+function onContactDestroyed(contact) {
+  console.info(`${LOGGER_PREFIX} - contact has been destroyed`, contact);
+
+  clearTranscriptCards();
 }
 
 function onAgentLocalMediaStreamCreated(data) {
@@ -863,6 +873,7 @@ async function handleCustomerTranscript(inputText) {
     //update CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent after 100ms
     setTimeout(() => {
       CCP_V2V.UI.customerTranslatedTextOutputDiv.textContent = translatedText;
+      addTranscriptCard(inputText, translatedText, "toAgent");
     }, 100);
   }
 }
@@ -889,6 +900,7 @@ async function handleAgentTranslateText() {
     //update CCP_V2V.UI.agentTranslatedTextOutputDiv.textContent after 100ms
     setTimeout(() => {
       CCP_V2V.UI.agentTranslatedTextOutputDiv.textContent = translatedText;
+      addTranscriptCard(inputText, translatedText, "fromAgent");
     }, 100);
   }
   CCP_V2V.UI.agentTranslateTextInput.value = "";
@@ -913,6 +925,7 @@ async function handleAgentTranscript(inputText) {
     //update CCP_V2V.UI.agentTranslatedTextOutputDiv.textContent after 100ms
     setTimeout(() => {
       CCP_V2V.UI.agentTranslatedTextOutputDiv.textContent = translatedText;
+      addTranscriptCard(inputText, translatedText, "fromAgent");
     }, 100);
   }
 }
@@ -1085,6 +1098,7 @@ async function handleAgentSynthesizeSpeech() {
   synthesizeAgentVoice(inputText);
   CCP_V2V.UI.agentPollyTextInput.value = "";
   CCP_V2V.UI.agentPollyTextInput.focus();
+  addTranscriptCard(inputText, inputText, "fromAgent");
 }
 
 function cleanUpUI() {
@@ -1115,4 +1129,40 @@ function setBackgroundColour(element, cssClass) {
   if (cssClass) {
     element.classList.add(cssClass);
   }
+}
+
+function addTranscriptCard(originalTranscript, translatedTranscript, type) {
+  const card = document.createElement("div");
+  card.className = `transcript-card ${type}`; // type is either 'fromAgent' or 'toAgent'
+
+  // Create original text element
+  const originalText = document.createElement("div");
+  originalText.className = "transcript-original";
+  originalText.textContent = originalTranscript;
+
+  // Create separator
+  const separator = document.createElement("div");
+  separator.className = "transcript-separator";
+
+  // Create translated text element
+  const translatedText = document.createElement("div");
+  translatedText.className = "transcript-translated";
+  translatedText.textContent = translatedTranscript;
+
+  // Append all elements to the card
+  card.appendChild(originalText);
+  card.appendChild(separator);
+  card.appendChild(translatedText);
+
+  CCP_V2V.UI.divTranscriptContainer.insertBefore(card, CCP_V2V.UI.divTranscriptContainer.lastChild);
+
+  // Auto scroll to the bottom
+  CCP_V2V.UI.divTranscriptContainer.scrollTop = CCP_V2V.UI.divTranscriptContainer.scrollHeight;
+}
+
+function clearTranscriptCards() {
+  const container = CCP_V2V.UI.divTranscriptContainer;
+
+  // Remove all children except the last one (spacer)
+  document.querySelectorAll(".transcript-container .transcript-card").forEach((card) => card.remove());
 }

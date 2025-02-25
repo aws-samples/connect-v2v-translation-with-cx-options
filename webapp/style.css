@@ -234,7 +234,7 @@ button:disabled {
 }
 
 #transcribeTranslate > div {
-  flex-basis: calc(50% - 10px);
+  flex-basis: calc(33% - 10px);
 }
 
 #audioPlayback {
@@ -285,4 +285,82 @@ button:disabled {
 
 .bg-none {
   background-color: transparent;
+}
+
+.control-group-transcription {
+  height: 100%;
+  background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 5px;
+  margin-bottom: 5px;
+  min-height: 707px;
+  max-height: 707px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  position: relative;
+}
+
+.transcript-container {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: scroll;
+  padding: 10px;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.transcript-spacer {
+  flex-grow: 1;
+}
+
+.transcript-card {
+  max-width: 70%;
+  padding: 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+  word-wrap: break-word;
+}
+
+.transcript-original {
+  font-size: 1em;
+  margin-bottom: 8px;
+}
+
+.transcript-separator {
+  height: 1px;
+  background-color: rgba(255, 255, 255, 0.2);
+  margin: 8px 0;
+}
+
+.fromAgent {
+  align-self: flex-end;
+  background-color: #007bff;
+  color: white;
+}
+
+.fromAgent .transcript-separator {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.toAgent {
+  align-self: flex-start;
+  background-color: #e9ecef;
+  color: black;
+}
+
+.toAgent .transcript-separator {
+  background-color: rgba(0, 0, 0, 0.1);
+}
+
+.transcript-translated {
+  font-size: 0.95em;
+  font-style: italic;
+  opacity: 0.9;
 }
