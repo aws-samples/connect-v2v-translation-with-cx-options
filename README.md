@@ -195,7 +195,7 @@ To remove the solution from your account, please follow these steps:
 
 ## Custom UI Demo Guide
 
-**Important:** At the top of the user interface (UI), select the microphone and speaker device that you use to engage with customer voice calls in Amazon Connect.
+**Important:** In the Audio Controls panel, select the microphone and speaker device that you use to engage with customer voice calls in Amazon Connect.
 
 **Note:** For demo purposes, you can also test different streaming behaviors that influence the customer experience:
 
@@ -213,7 +213,7 @@ To remove the solution from your account, please follow these steps:
 
 Before placing an incoming call, configure the following:
 
-- On the left hand side, under **Transcribe Customer Voice**:
+- In the **Customer Controls** panel, under **Transcribe Customer Voice**:
 
   - Select the language being spoken by the customer (can be pre-configured for demo purposes)
   - Click "Save"
@@ -222,20 +222,20 @@ Before placing an incoming call, configure the following:
   - Check "Enable Audio Feedback" to enable streaming of pre-recorded "contact center background noise" (at a very low volume, and automatically muted when agent reply is being delivered to customer).
   - These options are recommended for a more natural conversation experience (see **Audio Streaming Add-Ons** section)
 
-- On the left hand side, under **Translate Customer Voice**:
+- In the **Customer Controls** panel, under **Translate Customer Voice**:
 
   - Select Amazon Translate **From** Language: the customer's native language
   - Select Amazon Translate **To** Language: the agent's native language
   - Click "Save" for each selection
 
-- On the left hand side, under **Synthesize Customer Voice**:
+- In the **Customer Controls** panel, under **Synthesize Customer Voice**:
 
   - Select Amazon Polly Language: the agent's native language
   - Select Amazon Polly Engine: standard, neural, or generative
   - Select Amazon Polly Voice that is going to be used to synthesize customer's translated speech
   - Click "Save" for each selection
 
-- On the right hand side, under: **Transcribe Agent Voice**:
+- In the **Agent Controls** panel, under: **Transcribe Agent Voice**:
 
   - Select the language being spoken by the agent (can be pre-configured and saved based on the agent's preference)
   - Click "Save"
@@ -243,13 +243,13 @@ Before placing an incoming call, configure the following:
   - Check "Stream Agent Mic to Customer" to allow customer to hear agent's original voice (use the slider to adjust Microphone Volume)
   - These options are recommended for a more natural conversation experience (see **Audio Streaming Add-Ons** section)
 
-- On the right hand side, under: **Translate Agent Voice**:
+- In the **Agent Controls** panel, under: **Translate Agent Voice**:
 
   - Select Amazon Translate **From** Language: the agent's native language
   - Select Amazon Translate **To** Language: the customer's native language
   - Click "Save" for each selection
 
-- On the right hand side, under: **Synthesize Agent Voice**:
+- In the **Agent Controls** panel, under: **Synthesize Agent Voice**:
   - Select Amazon Polly Language: the customer's native language
   - Select Amazon Polly Engine: standard, neural, or generative
   - Select Amazon Polly Voice that is going to be used to synthesize agents's translated speech
@@ -258,8 +258,8 @@ Before placing an incoming call, configure the following:
 Once all parameters are configured, place an incoming call to your Amazon Connect instance, and follow the steps:
 
 - Answer the incoming customer call using the embedded softphone client (Amazon Connect CCP)
-- On the left hand side, under **Transcribe Customer Voice**, click "Start Transcription" to start transcribing customer's voice
-- On the right hand side, under: **Transcribe Agent Voice**, click "Start Transcription" to start transcribing agent's voice
+- In the **Customer Controls** panel, under **Transcribe Customer Voice**, click "Start Transcription" to start transcribing customer's voice
+- In the **Agent Controls** panel, under: **Transcribe Agent Voice**, click "Start Transcription" to start transcribing agent's voice
 
 **Note:**
 For demo purposes, at the bottom of the screen, there are 3 Audio elements. Those audio elements would normally be hidden in a production environment.
