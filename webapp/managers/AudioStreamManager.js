@@ -4,8 +4,8 @@ import { LOGGER_PREFIX } from "../constants";
 import { isStringUndefinedNullEmpty } from "../utils/commonUtility";
 
 export class AudioStreamManager {
-  constructor(audioElement) {
-    this.audioContext = new AudioContext();
+  constructor(audioElement, audioContext) {
+    this.audioContext = audioContext;
     this.mediaStreamDestination = this.audioContext.createMediaStreamDestination();
     this.audioElement = audioElement;
 
@@ -315,7 +315,6 @@ export class AudioStreamManager {
     if (this.audioTrack != null) {
       this.audioTrack.stop();
     }
-    await this.audioContext.close();
   }
 
   // Mute methods
