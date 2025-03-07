@@ -232,6 +232,11 @@ const bindUIElements = () => {
 };
 
 const initEventListeners = () => {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    console.info(`${LOGGER_PREFIX} - devicechange event fired`);
+    getDevices();
+  });
+
   CCP_V2V.UI.logoutButton.addEventListener("click", logout);
 
   CCP_V2V.UI.btnStreamFile.addEventListener("click", streamFile);
@@ -382,6 +387,12 @@ const initCCP = async (onConnectInitialized) => {
         allowFramedVideoCall: true, //allow the agent to add video to the call
         disableRingtone: false,
       },
+      pageOptions: {
+        enableAudioDeviceSettings: true,
+        enableVideoDeviceSettings: true,
+        enablePhoneTypeSettings: true,
+      },
+      shouldAddNamespaceToLogs: true,
     });
 
     window.connect.agent((agent) => {
@@ -569,7 +580,15 @@ function testAudioOutput() {
     .setSinkId(selectedSpeaker)
     .then(() => {
       console.info(`${LOGGER_PREFIX} - testAudioOutput - Audio output device set successfully`);
-      audio.play();
+      audio
+        .play()
+        .then(() => {
+          console.info(`${LOGGER_PREFIX} - testAudioOutput - Audio played successfully`);
+        })
+        .catch((err) => {
+          console.error(`${LOGGER_PREFIX} - testAudioOutput - Error playing audio:`, err);
+          raiseError("Failed to play audio.");
+        });
     })
     .catch((err) => {
       console.error(`${LOGGER_PREFIX} - testAudioOutput - Error setting output device:`, err);
@@ -581,6 +600,9 @@ async function getDevices() {
   try {
     //check Microphone permission
     const micPermission = await navigator.permissions.query({ name: "microphone" });
+    if (micPermission.state === "prompt") {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     if (micPermission.state === "denied") {
       raiseError("Microphone permission is denied. Please allow microphone access in your browser settings.");
       return;
@@ -602,7 +624,19 @@ async function getDevices() {
       }
     });
 
+    //raise an error if we only found devices without deviceId
+    if (micDevices.every((device) => !device.deviceId)) {
+      raiseError("No Microphone found. Please check your microphone and reload the page.");
+      return;
+    }
+
+    if (speakerDevices.every((device) => !device.deviceId)) {
+      raiseError("No Speaker found. Please check your speaker and reload the page.");
+      return;
+    }
+
     // Populate the microphone dropdown
+    CCP_V2V.UI.micSelect.innerHTML = "";
     micDevices.forEach((mic) => {
       const option = document.createElement("option");
       option.value = mic.deviceId;
@@ -622,6 +656,7 @@ async function getDevices() {
     }
 
     // Populate the speaker dropdown
+    CCP_V2V.UI.speakerSelect.innerHTML = "";
     speakerDevices.forEach((speaker) => {
       const option = document.createElement("option");
       option.value = speaker.deviceId;
@@ -671,7 +706,11 @@ async function loadTranscribeLanguageCodes() {
 //Creates Customer Speaker Stream used as input for Amazon Transcribe when transcribing customer's voice
 async function captureFromCustomerAudioStream() {
   const session = ConnectSoftPhoneManager?.getSession(CurrentAgentConnectionId);
-  const audioStream = session._remoteAudioStream;
+  const audioStream = session?._remoteAudioStream;
+  if (audioStream == null) {
+    console.error(`${LOGGER_PREFIX} - captureFromCustomerAudioStream - No audio stream found from customer`);
+    throw new Error("No audio stream found from customer, please check you browser sound settings");
+  }
 
   const amazonTranscribeFromCustomerAudioStream = new MicrophoneStream();
   amazonTranscribeFromCustomerAudioStream.setStream(audioStream);
