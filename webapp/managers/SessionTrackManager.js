@@ -12,8 +12,9 @@ export const TrackType = {
 };
 
 export class SessionTrackManager {
-  constructor(peerConnection) {
+  constructor(peerConnection, audioContext) {
     this.peerConnection = peerConnection;
+    this.audioContext = audioContext;
     this.currentTrackType = null;
     this.currentTrack = null;
     this.micStream = null;
@@ -22,8 +23,7 @@ export class SessionTrackManager {
 
   // Create a silent audio track
   createSilentTrack() {
-    const audioContext = new AudioContext();
-    const silentStream = audioContext.createMediaStreamDestination().stream;
+    const silentStream = this.audioContext.createMediaStreamDestination().stream;
     const silentTrack = silentStream.getAudioTracks()[0];
     return silentTrack;
   }
@@ -47,9 +47,8 @@ export class SessionTrackManager {
     audio.crossOrigin = "anonymous";
     audio.play();
 
-    const audioContext = new AudioContext();
-    const mediaStreamDestination = audioContext.createMediaStreamDestination();
-    const mediaElementSource = audioContext.createMediaElementSource(audio);
+    const mediaStreamDestination = this.audioContext.createMediaStreamDestination();
+    const mediaElementSource = this.audioContext.createMediaElementSource(audio);
     mediaElementSource.connect(mediaStreamDestination);
     const fileStream = mediaStreamDestination.stream;
 
