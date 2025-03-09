@@ -17,11 +17,13 @@ import {
 import { getLoginUrl, getValidTokens, handleRedirect, isAuthenticated, logout, setRedirectURI, startTokenRefreshTimer } from "./utils/authUtility";
 import { AudioStreamManager } from "./managers/AudioStreamManager";
 import { SessionTrackManager, TrackType } from "./managers/SessionTrackManager";
-import { createMicrophoneStream } from "./utils/transcribeUtils";
+import { checkMediaTrackSettings, createMicrophoneStream } from "./utils/transcribeUtils";
 import { listLanguages, translateText } from "./adapters/translateAdapter";
 import { describeVoices, synthesizeSpeech } from "./adapters/pollyAdapter";
 import { startAgentStreamTranscription, startCustomerStreamTranscription } from "./adapters/transcribeAdapter";
 import { CONNECT_CONFIG } from "./config";
+import { AudioContextManager } from "./managers/AudioContextManager";
+import { AudioInputTestManager } from "./managers/InputTestManager";
 
 let connect = {};
 let CurrentUser = {};
@@ -30,6 +32,12 @@ let CCP_V2V = {};
 let CurrentAgentConnectionId;
 let ConnectSoftPhoneManager;
 let IsAgentTranscriptionMuted = false;
+
+// AudioContextManager to manage the AudioContext
+let AudioContextMgr = new AudioContextManager();
+
+// AgentMicTestManager to test agent's mic
+let AgentMicTestManager;
 
 //Agent Mic Stream used as input for Amazon Transcribe when transcribing agent's voice
 let AmazonTranscribeToCustomerAudioStream;
@@ -45,25 +53,40 @@ let ToCustomerAudioStreamManager;
 // AudioStreamManager to manage the stream that goes to Agent
 let ToAgentAudioStreamManager;
 
+async function getAudioContext() {
+  if (AudioContextMgr == null) {
+    AudioContextMgr = new AudioContextManager();
+  }
+  const audioContext = await AudioContextMgr.getAudioContext();
+  return audioContext;
+}
+
+async function getAgentMicTestManager() {
+  if (AgentMicTestManager == null) {
+    AgentMicTestManager = new AudioInputTestManager(await getAudioContext());
+  }
+  return AgentMicTestManager;
+}
+
 async function replaceRTCSessionTrackManager(peerConnection) {
   if (RTCSessionTrackManager != null) {
     await RTCSessionTrackManager.dispose();
   }
-  RTCSessionTrackManager = new SessionTrackManager(peerConnection);
+  RTCSessionTrackManager = new SessionTrackManager(peerConnection, await getAudioContext());
 }
 
 async function replaceToCustomerAudioStreamManager() {
   if (ToCustomerAudioStreamManager != null) {
     await ToCustomerAudioStreamManager.dispose();
   }
-  ToCustomerAudioStreamManager = new AudioStreamManager(CCP_V2V.UI.toCustomerAudioElement);
+  ToCustomerAudioStreamManager = new AudioStreamManager(CCP_V2V.UI.toCustomerAudioElement, await getAudioContext());
 }
 
 async function replaceToAgentAudioStreamManager() {
   if (ToAgentAudioStreamManager != null) {
     await ToAgentAudioStreamManager.dispose();
   }
-  ToAgentAudioStreamManager = new AudioStreamManager(CCP_V2V.UI.toAgentAudioElement);
+  ToAgentAudioStreamManager = new AudioStreamManager(CCP_V2V.UI.toAgentAudioElement, await getAudioContext());
 }
 
 window.addEventListener("load", () => {
@@ -209,6 +232,11 @@ const bindUIElements = () => {
 };
 
 const initEventListeners = () => {
+  navigator.mediaDevices.addEventListener("devicechange", () => {
+    console.info(`${LOGGER_PREFIX} - devicechange event fired`);
+    getDevices();
+  });
+
   CCP_V2V.UI.logoutButton.addEventListener("click", logout);
 
   CCP_V2V.UI.btnStreamFile.addEventListener("click", streamFile);
@@ -217,7 +245,16 @@ const initEventListeners = () => {
 
   //mic & speaker ui buttons
   CCP_V2V.UI.testAudioButton.addEventListener("click", testAudioOutput);
-  CCP_V2V.UI.testMicButton.addEventListener("click", testMicrophone);
+  CCP_V2V.UI.testMicButton.addEventListener("click", () => {
+    if (CCP_V2V.UI.testMicButton.innerText === "Test") {
+      testMicrophone();
+      CCP_V2V.UI.testMicButton.innerText = "Stop";
+    } else if (CCP_V2V.UI.testMicButton.innerText === "Stop") {
+      stopTestMicrophone();
+      CCP_V2V.UI.testMicButton.innerText = "Test";
+    }
+  });
+
   CCP_V2V.UI.speakerSaveButton.addEventListener("click", () => addUpdateLocalStorageKey("selectedSpeakerId", CCP_V2V.UI.speakerSelect.value));
   CCP_V2V.UI.micSaveButton.addEventListener("click", () => addUpdateLocalStorageKey("selectedMicId", CCP_V2V.UI.micSelect.value));
 
@@ -350,6 +387,12 @@ const initCCP = async (onConnectInitialized) => {
         allowFramedVideoCall: true, //allow the agent to add video to the call
         disableRingtone: false,
       },
+      pageOptions: {
+        enableAudioDeviceSettings: true,
+        enableVideoDeviceSettings: true,
+        enablePhoneTypeSettings: true,
+      },
+      shouldAddNamespaceToLogs: true,
     });
 
     window.connect.agent((agent) => {
@@ -509,47 +552,18 @@ async function testMicrophone() {
       audio: { deviceId: selectedMic },
     });
 
-    // Get the audio context and create an analyser to visualize the audio input
-    const audioContext = new AudioContext();
-    const analyser = audioContext.createAnalyser();
-    const microphoneStreamSource = audioContext.createMediaStreamSource(micStream);
-    microphoneStreamSource.connect(analyser);
-
-    // Setup the analyser
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    // Function to update the volume bar based on microphone input
-    function updateVolume() {
-      analyser.getByteFrequencyData(dataArray);
-
-      // Calculate average volume
-      let sum = 0;
-      for (let i = 0; i < bufferLength; i++) {
-        sum += dataArray[i];
-      }
-      const average = sum / bufferLength;
-
-      // Update the volume level bar
-      const volumeBar = document.getElementById("volumeBar");
-      const volumePercentage = Math.min((average / 255) * 100, 100);
-      volumeBar.style.width = `${volumePercentage}%`;
-
-      requestAnimationFrame(updateVolume);
-    }
-
-    // Start updating the volume bar
-    updateVolume();
-
-    // Play the stream through the audio element (optional for audio feedback)
-    // const audioPlayback = document.getElementById("audioPlayback");
-    // audioPlayback.srcObject = stream;
-    // audioPlayback.play();
+    const volumeBar = document.getElementById("volumeBar");
+    const agentMicTestManager = await getAgentMicTestManager();
+    agentMicTestManager.startAudioTest(micStream, volumeBar);
   } catch (err) {
     console.error(`${LOGGER_PREFIX} - testMicrophone - Error accessing microphone`, err);
     raiseError("Failed to access microphone.");
   }
+}
+
+async function stopTestMicrophone() {
+  const agentMicTestManager = await getAgentMicTestManager();
+  agentMicTestManager.stopAudioTest();
 }
 
 // Function to test the selected audio output device
@@ -566,7 +580,15 @@ function testAudioOutput() {
     .setSinkId(selectedSpeaker)
     .then(() => {
       console.info(`${LOGGER_PREFIX} - testAudioOutput - Audio output device set successfully`);
-      audio.play();
+      audio
+        .play()
+        .then(() => {
+          console.info(`${LOGGER_PREFIX} - testAudioOutput - Audio played successfully`);
+        })
+        .catch((err) => {
+          console.error(`${LOGGER_PREFIX} - testAudioOutput - Error playing audio:`, err);
+          raiseError("Failed to play audio.");
+        });
     })
     .catch((err) => {
       console.error(`${LOGGER_PREFIX} - testAudioOutput - Error setting output device:`, err);
@@ -578,6 +600,9 @@ async function getDevices() {
   try {
     //check Microphone permission
     const micPermission = await navigator.permissions.query({ name: "microphone" });
+    if (micPermission.state === "prompt") {
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
     if (micPermission.state === "denied") {
       raiseError("Microphone permission is denied. Please allow microphone access in your browser settings.");
       return;
@@ -599,7 +624,19 @@ async function getDevices() {
       }
     });
 
+    //raise an error if we only found devices without deviceId
+    if (micDevices.every((device) => !device.deviceId)) {
+      raiseError("No Microphone found. Please check your microphone and reload the page.");
+      return;
+    }
+
+    if (speakerDevices.every((device) => !device.deviceId)) {
+      raiseError("No Speaker found. Please check your speaker and reload the page.");
+      return;
+    }
+
     // Populate the microphone dropdown
+    CCP_V2V.UI.micSelect.innerHTML = "";
     micDevices.forEach((mic) => {
       const option = document.createElement("option");
       option.value = mic.deviceId;
@@ -619,6 +656,7 @@ async function getDevices() {
     }
 
     // Populate the speaker dropdown
+    CCP_V2V.UI.speakerSelect.innerHTML = "";
     speakerDevices.forEach((speaker) => {
       const option = document.createElement("option");
       option.value = speaker.deviceId;
@@ -668,7 +706,11 @@ async function loadTranscribeLanguageCodes() {
 //Creates Customer Speaker Stream used as input for Amazon Transcribe when transcribing customer's voice
 async function captureFromCustomerAudioStream() {
   const session = ConnectSoftPhoneManager?.getSession(CurrentAgentConnectionId);
-  const audioStream = session._remoteAudioStream;
+  const audioStream = session?._remoteAudioStream;
+  if (audioStream == null) {
+    console.error(`${LOGGER_PREFIX} - captureFromCustomerAudioStream - No audio stream found from customer`);
+    throw new Error("No audio stream found from customer, please check you browser sound settings");
+  }
 
   const amazonTranscribeFromCustomerAudioStream = new MicrophoneStream();
   amazonTranscribeFromCustomerAudioStream.setStream(audioStream);
@@ -696,6 +738,11 @@ async function customerStartTranscription() {
 
     //getting the remote audio stream from the current RTC session into AmazonTranscribeFromCustomerAudioStream variable
     AmazonTranscribeFromCustomerAudioStream = await captureFromCustomerAudioStream();
+    console.info(
+      `${LOGGER_PREFIX} - customerStartTranscription - AmazonTranscribeFromCustomerAudioStream Sample Rate:`,
+      await checkMediaTrackSettings(AmazonTranscribeFromCustomerAudioStream.stream)
+    );
+
     startCustomerStreamTranscription(
       AmazonTranscribeFromCustomerAudioStream,
       customerTranscribeLanguageSelect.value,
@@ -714,7 +761,7 @@ async function customerStartTranscription() {
 async function customerStopTranscription() {
   if (AmazonTranscribeFromCustomerAudioStream) {
     //replace the stream with a silent stream
-    const audioContext = new AudioContext();
+    const audioContext = await getAudioContext();
     const silentStream = audioContext.createMediaStreamDestination().stream;
     AmazonTranscribeFromCustomerAudioStream.setStream(silentStream);
     AmazonTranscribeFromCustomerAudioStream.stop();
@@ -749,6 +796,11 @@ async function agentStartTranscription() {
 
     //getting the local Mic stream into AmazonTranscribeMicStream variable
     AmazonTranscribeToCustomerAudioStream = await createMicrophoneStream(selectedMic);
+    console.info(
+      `${LOGGER_PREFIX} - agentStartTranscription - AmazonTranscribeToCustomerAudioStream Sample Rate:`,
+      await checkMediaTrackSettings(AmazonTranscribeToCustomerAudioStream.stream)
+    );
+
     startAgentStreamTranscription(
       AmazonTranscribeToCustomerAudioStream,
       agentTranscribeLanguageSelect.value,
@@ -764,10 +816,10 @@ async function agentStartTranscription() {
   }
 }
 
-function agentStopTranscription() {
+async function agentStopTranscription() {
   if (AmazonTranscribeToCustomerAudioStream) {
     //replace the stream with a silent stream
-    const audioContext = new AudioContext();
+    const audioContext = await getAudioContext();
     const silentStream = audioContext.createMediaStreamDestination().stream;
     AmazonTranscribeToCustomerAudioStream.setStream(silentStream);
     AmazonTranscribeToCustomerAudioStream.stop();
@@ -1033,12 +1085,6 @@ async function synthesizeCustomerVoice(inputText) {
   const selectedLanguageCode = CCP_V2V.UI.customerPollyLanguageCodeSelect.value;
   const selectedPollyEngine = CCP_V2V.UI.customerPollyEngineSelect.value;
   const selectedVoiceId = CCP_V2V.UI.customerPollyVoiceIdSelect.value;
-
-  //log synth request timestamp
-  // const timestamp = new Date().toISOString();
-  // console.info(
-  //   `${LOGGER_PREFIX} - synthesizeCustomerVoice - Synth request received at ${timestamp}`
-  // );
 
   const synthetizedSpeech = await synthesizeSpeech(selectedLanguageCode, selectedPollyEngine, selectedVoiceId, inputText).catch((error) => {
     console.error(`${LOGGER_PREFIX} - synthesizeCustomerVoice - Error synthesizing speech:`, error);
