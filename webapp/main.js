@@ -746,6 +746,7 @@ async function customerStartTranscription() {
     startCustomerStreamTranscription(
       AmazonTranscribeFromCustomerAudioStream,
       customerTranscribeLanguageSelect.value,
+      "low",
       handleCustomerTranscript,
       handleCustomerPartialTranscript
     );
@@ -804,6 +805,7 @@ async function agentStartTranscription() {
     startAgentStreamTranscription(
       AmazonTranscribeToCustomerAudioStream,
       agentTranscribeLanguageSelect.value,
+      "low",
       handleAgentTranscript,
       handleAgentPartialTranscript
     );

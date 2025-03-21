@@ -110,3 +110,5 @@ export const POLLY_LANGUAGE_CODES = [
   "cs-CZ",
   "de-CH",
 ];
+
+export const TRANSCRIBE_PARTIAL_RESULTS_STABILITY = ["low", "medium", "high"];
