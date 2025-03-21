@@ -294,8 +294,8 @@ button:disabled {
   border-radius: 5px;
   padding: 5px;
   margin-bottom: 5px;
-  min-height: 707px;
-  max-height: 707px;
+  min-height: 752px;
+  max-height: 752px;
   display: flex;
   flex-direction: column;
   padding: 10px;
