@@ -12,6 +12,7 @@ import {
   LOGGER_PREFIX,
   POLLY_ENGINES,
   POLLY_LANGUAGE_CODES,
+  TRANSCRIBE_PARTIAL_RESULTS_STABILITY,
   TRANSCRIBE_STREAMING_LANGUAGES,
 } from "./constants";
 import { getLoginUrl, getValidTokens, handleRedirect, isAuthenticated, logout, setRedirectURI, startTokenRefreshTimer } from "./utils/authUtility";
@@ -101,6 +102,7 @@ async function initializeApp() {
     const isRedirect = await handleRedirect();
     if (isRedirect) {
       console.info(`${LOGGER_PREFIX} - initializeApp - Redirected from Cognito login`);
+      startTokenRefreshTimer();
       showApp();
       return;
     }
@@ -138,6 +140,7 @@ const onLoad = async () => {
   getDevices();
   setAudioElementsSinkIds();
   loadTranscribeLanguageCodes();
+  loadTranscribePartialResultsStability();
   loadTranslateLanguageCodes();
   loadPollyEngines();
   loadPollyLanguageCodes();
@@ -178,6 +181,8 @@ const bindUIElements = () => {
     //Transcribe Customer UI Elements
     customerTranscribeLanguageSelect: document.getElementById("customerTranscribeLanguageSelect"),
     customerTranscribeLanguageSaveButton: document.getElementById("customerTranscribeLanguageSaveButton"),
+    customerTranscribePartialResultsStabilitySelect: document.getElementById("customerTranscribePartialResultsStabilitySelect"),
+    customerTranscribePartialResultsStabilitySaveButton: document.getElementById("customerTranscribePartialResultsStabilitySaveButton"),
     customerStartTranscriptionButton: document.getElementById("customerStartTranscriptionButton"),
     customerStopTranscriptionButton: document.getElementById("customerStopTranscriptionButton"),
     customerTranscriptionTextOutputDiv: document.getElementById("customerTranscriptionTextOutputDiv"),
@@ -200,6 +205,8 @@ const bindUIElements = () => {
     //Transcribe Agent UI Elements
     agentTranscribeLanguageSelect: document.getElementById("agentTranscribeLanguageSelect"),
     agentTranscribeLanguageSaveButton: document.getElementById("agentTranscribeLanguageSaveButton"),
+    agentTranscribePartialResultsStabilitySelect: document.getElementById("agentTranscribePartialResultsStabilitySelect"),
+    agentTranscribePartialResultsStabilitySaveButton: document.getElementById("agentTranscribePartialResultsStabilitySaveButton"),
     agentStartTranscriptionButton: document.getElementById("agentStartTranscriptionButton"),
     agentStopTranscriptionButton: document.getElementById("agentStopTranscriptionButton"),
     agentMuteTranscriptionButton: document.getElementById("agentMuteTranscriptionButton"),
@@ -262,6 +269,10 @@ const initEventListeners = () => {
   CCP_V2V.UI.customerTranscribeLanguageSaveButton.addEventListener("click", () => {
     addUpdateLocalStorageKey("customerTranscribeLanguage", CCP_V2V.UI.customerTranscribeLanguageSelect.value);
   });
+  CCP_V2V.UI.customerTranscribePartialResultsStabilitySaveButton.addEventListener("click", () => {
+    addUpdateLocalStorageKey("customerTranscribePartialResultsStability", CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value);
+  });
+
   CCP_V2V.UI.customerStartTranscriptionButton.addEventListener("click", customerStartTranscription);
   CCP_V2V.UI.customerStopTranscriptionButton.addEventListener("click", customerStopTranscription);
 
@@ -296,6 +307,9 @@ const initEventListeners = () => {
   //Transcribe Agent UI buttons
   CCP_V2V.UI.agentTranscribeLanguageSaveButton.addEventListener("click", () => {
     addUpdateLocalStorageKey("agentTranscribeLanguage", CCP_V2V.UI.agentTranscribeLanguageSelect.value);
+  });
+  CCP_V2V.UI.agentTranscribePartialResultsStabilitySaveButton.addEventListener("click", () => {
+    addUpdateLocalStorageKey("agentTranscribePartialResultsStability", CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.value);
   });
 
   CCP_V2V.UI.agentStartTranscriptionButton.addEventListener("click", agentStartTranscription);
@@ -703,6 +717,30 @@ async function loadTranscribeLanguageCodes() {
   }
 }
 
+function loadTranscribePartialResultsStability() {
+  TRANSCRIBE_PARTIAL_RESULTS_STABILITY.forEach((stability) => {
+    const option = document.createElement("option");
+    option.value = stability;
+    option.textContent = stability;
+    CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.appendChild(option);
+    CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.appendChild(option.cloneNode(true));
+  });
+  //set none as default
+  CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value = "none";
+  CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.value = "none";
+
+  //pre-select saved transcribePartialResultStability
+  const savedCustomerTranscribePartialResultsStability = getLocalStorageValueByKey("customerTranscribePartialResultsStability");
+  if (savedCustomerTranscribePartialResultsStability) {
+    CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value = savedCustomerTranscribePartialResultsStability;
+  }
+
+  const savedAgentTranscribePartialResultsStability = getLocalStorageValueByKey("agentTranscribePartialResultsStability");
+  if (savedAgentTranscribePartialResultsStability) {
+    CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.value = savedAgentTranscribePartialResultsStability;
+  }
+}
+
 //Creates Customer Speaker Stream used as input for Amazon Transcribe when transcribing customer's voice
 async function captureFromCustomerAudioStream() {
   const session = ConnectSoftPhoneManager?.getSession(CurrentAgentConnectionId);
@@ -745,11 +783,14 @@ async function customerStartTranscription() {
 
     startCustomerStreamTranscription(
       AmazonTranscribeFromCustomerAudioStream,
-      customerTranscribeLanguageSelect.value,
+      CCP_V2V.UI.customerTranscribeLanguageSelect.value,
+      CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value,
       handleCustomerTranscript,
       handleCustomerPartialTranscript
     );
 
+    CCP_V2V.UI.customerTranscribeLanguageSelect.disabled = true;
+    CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.disabled = true;
     CCP_V2V.UI.customerStartTranscriptionButton.disabled = true;
     CCP_V2V.UI.customerStopTranscriptionButton.disabled = false;
   } catch (error) {
@@ -772,6 +813,8 @@ async function customerStopTranscription() {
   //un-mute the audio element
   CCP_V2V.UI.fromCustomerAudioElement.muted = false;
 
+  CCP_V2V.UI.customerTranscribeLanguageSelect.disabled = false;
+  CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.disabled = false;
   CCP_V2V.UI.customerStartTranscriptionButton.disabled = false;
   CCP_V2V.UI.customerStopTranscriptionButton.disabled = true;
 }
@@ -803,11 +846,14 @@ async function agentStartTranscription() {
 
     startAgentStreamTranscription(
       AmazonTranscribeToCustomerAudioStream,
-      agentTranscribeLanguageSelect.value,
+      CCP_V2V.UI.agentTranscribeLanguageSelect.value,
+      CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.value,
       handleAgentTranscript,
       handleAgentPartialTranscript
     );
 
+    CCP_V2V.UI.agentTranscribeLanguageSelect.disabled = true;
+    CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.disabled = true;
     CCP_V2V.UI.agentStartTranscriptionButton.disabled = true;
     CCP_V2V.UI.agentStopTranscriptionButton.disabled = false;
   } catch (error) {
@@ -827,6 +873,8 @@ async function agentStopTranscription() {
     AmazonTranscribeToCustomerAudioStream = undefined;
   }
 
+  CCP_V2V.UI.agentTranscribeLanguageSelect.disabled = false;
+  CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.disabled = false;
   CCP_V2V.UI.agentStartTranscriptionButton.disabled = false;
   CCP_V2V.UI.agentStopTranscriptionButton.disabled = true;
 }
