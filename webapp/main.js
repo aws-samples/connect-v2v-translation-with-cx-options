@@ -102,6 +102,7 @@ async function initializeApp() {
     const isRedirect = await handleRedirect();
     if (isRedirect) {
       console.info(`${LOGGER_PREFIX} - initializeApp - Redirected from Cognito login`);
+      startTokenRefreshTimer();
       showApp();
       return;
     }
