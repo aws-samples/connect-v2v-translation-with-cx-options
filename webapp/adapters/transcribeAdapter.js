@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: MIT-0
 import { StartStreamTranscriptionCommand, TranscribeStreamingClient } from "@aws-sdk/client-transcribe-streaming";
 import { TRANSCRIBE_CONFIG } from "../config";
-import { LOGGER_PREFIX, TRANSCRIBE_PARTIAL_RESULTS_STABILITY, TRANSCRIBE_SAMPLE_RATE_AGENT, TRANSCRIBE_SAMPLE_RATE_CUSTOMER } from "../constants";
+import { LOGGER_PREFIX, TRANSCRIBE_PARTIAL_RESULTS_STABILITY } from "../constants";
 import { getValidAwsCredentials, hasValidAwsCredentials } from "../utils/authUtility";
 import { isFunction, isObjectUndefinedNullEmpty, isStringUndefinedNullEmpty } from "../utils/commonUtility";
 import { getTranscribeAudioStream, getTranscribeMicStream } from "../utils/transcribeUtils";
@@ -58,8 +58,16 @@ export async function getAmazonTranscribeClientCustomer() {
   }
 }
 
-export async function startCustomerStreamTranscription(audioStream, languageCode, partialResultStability, onFinalTranscribeEvent, onPartialTranscribeEvent) {
+export async function startCustomerStreamTranscription(
+  audioStream,
+  sampleRate,
+  languageCode,
+  partialResultStability,
+  onFinalTranscribeEvent,
+  onPartialTranscribeEvent
+) {
   if (isObjectUndefinedNullEmpty(audioStream)) throw new Error("audioStream is required");
+  if (!Number.isInteger(sampleRate)) throw new Error("sampleRate is required as integer");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
   if (isStringUndefinedNullEmpty(partialResultStability)) throw new Error("partialResultStability is required");
   if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
@@ -70,8 +78,8 @@ export async function startCustomerStreamTranscription(audioStream, languageCode
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
     LanguageCode: languageCode,
     MediaEncoding: "pcm",
-    MediaSampleRateHertz: TRANSCRIBE_SAMPLE_RATE_CUSTOMER,
-    AudioStream: getTranscribeAudioStream(audioStream),
+    MediaSampleRateHertz: sampleRate,
+    AudioStream: getTranscribeAudioStream(audioStream, sampleRate),
     EnablePartialResultsStabilization: enablePartialResultsStabilization,
     PartialResultsStability: enablePartialResultsStabilization ? partialResultStability : undefined,
   });
@@ -95,8 +103,16 @@ export async function startCustomerStreamTranscription(audioStream, languageCode
   }
 }
 
-export async function startAgentStreamTranscription(audioStream, languageCode, partialResultStability, onFinalTranscribeEvent, onPartialTranscribeEvent) {
+export async function startAgentStreamTranscription(
+  audioStream,
+  sampleRate,
+  languageCode,
+  partialResultStability,
+  onFinalTranscribeEvent,
+  onPartialTranscribeEvent
+) {
   if (isObjectUndefinedNullEmpty(audioStream)) throw new Error("audioStream is required");
+  if (!Number.isInteger(sampleRate)) throw new Error("sampleRate is required as integer");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
   if (isStringUndefinedNullEmpty(partialResultStability)) throw new Error("partialResultStability is required");
   if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
@@ -107,8 +123,8 @@ export async function startAgentStreamTranscription(audioStream, languageCode, p
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
     LanguageCode: languageCode,
     MediaEncoding: "pcm",
-    MediaSampleRateHertz: TRANSCRIBE_SAMPLE_RATE_AGENT,
-    AudioStream: getTranscribeMicStream(audioStream),
+    MediaSampleRateHertz: sampleRate,
+    AudioStream: getTranscribeMicStream(audioStream, sampleRate),
     EnablePartialResultsStabilization: enablePartialResultsStabilization,
     PartialResultsStability: enablePartialResultsStabilization ? partialResultStability : undefined,
   });

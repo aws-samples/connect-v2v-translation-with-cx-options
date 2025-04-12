@@ -7,8 +7,6 @@ export const LOGGER_PREFIX = "CCP-V2V";
 export const CUSTOMER_TRANSLATION_TO_CUSTOMER_VOLUME = 0.1;
 export const AGENT_TRANSLATION_TO_AGENT_VOLUME = 0.1;
 
-export const TRANSCRIBE_SAMPLE_RATE_AGENT = 48000;
-export const TRANSCRIBE_SAMPLE_RATE_CUSTOMER = 48000;
 export const TRANSCRIBE_STREAMING_LANGUAGES = [
   "af-ZA",
   "ar-AE",
@@ -112,3 +110,5 @@ export const POLLY_LANGUAGE_CODES = [
 ];
 
 export const TRANSCRIBE_PARTIAL_RESULTS_STABILITY = ["low", "medium", "high"];
+
+export const AUDIO_FEEDBACK_FILE_PATH = "./assets/background_noise.wav";

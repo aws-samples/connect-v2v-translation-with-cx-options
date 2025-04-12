@@ -25,18 +25,28 @@ export class AudioStreamManager {
     this.microphoneStream = null;
     this.microphoneGain = null;
     this.isMicrophoneActive = false;
+    this.activeMicrophoneDeviceId;
 
     this.customFeedbackBuffer = null;
   }
 
-  async startMicrophone(selectedMic) {
+  async startMicrophone(microphoneConstraints) {
     try {
-      if (this.isMicrophoneActive) return;
+      const microphoneDeviceId = microphoneConstraints?.audio?.deviceId;
+      if (microphoneDeviceId == null) throw new Error("Microphone deviceId not provided!");
+
+      if (this.isMicrophoneActive) {
+        if (this.activeMicrophoneDeviceId === microphoneDeviceId) {
+          console.info(`${LOGGER_PREFIX} - Microphone [${microphoneDeviceId}] already active`);
+          return;
+        } else {
+          this.stopMicrophone();
+        }
+      }
 
       // Get microphone stream
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { deviceId: selectedMic },
-      });
+      this.activeMicrophoneDeviceId = microphoneDeviceId;
+      const stream = await navigator.mediaDevices.getUserMedia(microphoneConstraints);
 
       // Create source from microphone
       const micSource = this.audioContext.createMediaStreamSource(stream);
@@ -75,6 +85,7 @@ export class AudioStreamManager {
     }
 
     this.isMicrophoneActive = false;
+    this.activeMicrophoneDeviceId = null;
     console.info(`${LOGGER_PREFIX} - Microphone stopped`);
   }
 

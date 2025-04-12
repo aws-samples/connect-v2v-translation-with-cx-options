@@ -88,7 +88,7 @@ main {
   border-radius: 5px;
   padding: 5px;
   margin-bottom: 5px;
-  min-height: 266px;
+  min-height: 343px;
   display: flex;
   flex-direction: column;
 }
@@ -294,8 +294,8 @@ button:disabled {
   border-radius: 5px;
   padding: 5px;
   margin-bottom: 5px;
-  min-height: 752px;
-  max-height: 752px;
+  min-height: 782px;
+  max-height: 782px;
   display: flex;
   flex-direction: column;
   padding: 10px;

@@ -29,10 +29,8 @@ export class SessionTrackManager {
   }
 
   // Get microphone access and create track
-  async createMicTrack(selectedMic) {
-    const micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: selectedMic },
-    });
+  async createMicTrack(microphoneConstraints) {
+    const micStream = await navigator.mediaDevices.getUserMedia(microphoneConstraints);
 
     const micStreamAudioTrack = micStream.getAudioTracks()[0];
     return micStreamAudioTrack;

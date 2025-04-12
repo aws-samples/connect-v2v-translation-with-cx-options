@@ -140,4 +140,12 @@ export class AudioContextManager {
   getState() {
     return this.audioContext?.state;
   }
+
+  getActualSampleRate() {
+    //The actual sample rate might change when switching audio devices (i.e. switching to wireless headphones)
+    const tmpAudioContext = new AudioContext();
+    const actualSampleRate = tmpAudioContext.sampleRate;
+    tmpAudioContext.close();
+    return actualSampleRate;
+  }
 }

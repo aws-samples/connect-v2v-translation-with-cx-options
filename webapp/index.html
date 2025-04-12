@@ -44,6 +44,47 @@
               <div id="volumeBarContainer" class="volume-bar-container">
                 <div id="volumeBar" class="volume-bar"></div>
               </div>
+              <div class="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="echoCancellationCheckbox"
+                  name="echoCancellationCheckbox"
+                  title="Browser's built-in echo cancellation. Disable when using high-quality headphones with hardware based echo cancellation."
+                  checked
+                />
+                <label
+                  for="echoCancellationCheckbox"
+                  title="Browser's built-in echo cancellation. Disable when using high-quality headphones with hardware based echo cancellation."
+                  >Echo Cancellation</label
+                >
+              </div>
+              <div class="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="noiseSuppressionCheckbox"
+                  name="noiseSuppressionCheckbox"
+                  title="Browser's built-in noise suppression. Disable when using high-quality headphones with hardware based noise suppression."
+                  checked
+                />
+                <label
+                  for="noiseSuppressionCheckbox"
+                  title="Browser's built-in noise suppression. Disable when using high-quality headphones with hardware based noise suppression."
+                  >Noise Suppression</label
+                >
+              </div>
+              <div class="checkbox-group">
+                <input
+                  type="checkbox"
+                  id="autoGainControlCheckbox"
+                  name="autoGainControlCheckbox"
+                  title="Browser's built-in auto gain control for microphone input. Automatically adjusts microphone volume, disable to prevent picking up nearby voices."
+                />
+                <label
+                  for="autoGainControlCheckbox"
+                  title="Browser's built-in auto gain control for microphone input. Automatically adjusts microphone volume, disable to prevent picking up nearby voices."
+                  >Auto Gain Control</label
+                >
+              </div>
             </div>
             <div class="control-group">
               <h3>Swap Audio Source</h3>
@@ -101,8 +142,8 @@
                   <label for="customerStreamTranslationCheckbox">Stream Customer Translation to Customer</label>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="agentAudioFeedbackEnabledCheckbox" name="agentAudioFeedbackEnabledCheckbox" checked />
-                  <label for="agentAudioFeedbackEnabledCheckbox">Enable Audio Feedback</label>
+                  <input type="checkbox" id="customerAudioFeedbackEnabledCheckbox" name="customerAudioFeedbackEnabledCheckbox" checked />
+                  <label for="customerAudioFeedbackEnabledCheckbox">Enable Customer Audio Feedback</label>
                 </div>
                 <div class="output-group">
                   <label for="customerTranscriptionTextOutputDiv">Customer Transcription:</label>
@@ -184,6 +225,10 @@
                 <div class="checkbox-group">
                   <input type="checkbox" id="agentStreamMicCheckbox" name="agentStreamMicCheckbox" checked />
                   <label for="agentStreamMicCheckbox">Stream Agent Mic to Customer</label>
+                </div>
+                <div class="checkbox-group">
+                  <input type="checkbox" id="agentAudioFeedbackEnabledCheckbox" name="agentAudioFeedbackEnabledCheckbox" checked />
+                  <label for="agentAudioFeedbackEnabledCheckbox">Enable Agent Audio Feedback</label>
                 </div>
                 <div class="volume-group">
                   <label for="agentStreamMicVolume">Microphone Volume:</label>

@@ -2,16 +2,6 @@
 // SPDX-License-Identifier: MIT-0
 import { Buffer } from "buffer";
 import MicrophoneStream from "microphone-stream";
-import { TRANSCRIBE_SAMPLE_RATE_AGENT, TRANSCRIBE_SAMPLE_RATE_CUSTOMER } from "../constants";
-
-export async function checkMediaTrackSettings(stream) {
-  const audioTrack = stream.getAudioTracks()[0];
-  if (audioTrack) {
-    const settings = audioTrack.getSettings();
-    return settings.sampleRate; // This will show the actual sample rate of the input device
-  }
-  return null;
-}
 
 export function encodePCMChunk(chunk) {
   const input = MicrophoneStream.toRaw(chunk);
@@ -26,19 +16,15 @@ export function encodePCMChunk(chunk) {
 }
 
 //Creates Agent Mic Stream, used as input for Amazon Transcribe when transcribing agent's voice
-export async function createMicrophoneStream(selectedMic) {
+export async function createMicrophoneStream(microphoneConstraints) {
   const micStream = new MicrophoneStream();
-  micStream.setStream(
-    await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: selectedMic },
-    })
-  );
+  micStream.setStream(await navigator.mediaDevices.getUserMedia(microphoneConstraints));
   return micStream;
 }
 
-export const getTranscribeMicStream = async function* (amazonTranscribeMicStream) {
+export const getTranscribeMicStream = async function* (amazonTranscribeMicStream, sampleRate) {
   for await (const chunk of amazonTranscribeMicStream) {
-    if (chunk.length <= TRANSCRIBE_SAMPLE_RATE_AGENT) {
+    if (chunk.length <= sampleRate) {
       const encodedChunk = encodePCMChunk(chunk);
       yield {
         AudioEvent: {
@@ -49,9 +35,9 @@ export const getTranscribeMicStream = async function* (amazonTranscribeMicStream
   }
 };
 
-export const getTranscribeAudioStream = async function* (amazonTranscribeAudioStream) {
+export const getTranscribeAudioStream = async function* (amazonTranscribeAudioStream, sampleRate) {
   for await (const chunk of amazonTranscribeAudioStream) {
-    if (chunk.length <= TRANSCRIBE_SAMPLE_RATE_CUSTOMER) {
+    if (chunk.length <= sampleRate) {
       const encodedChunk = encodePCMChunk(chunk);
       yield {
         AudioEvent: {

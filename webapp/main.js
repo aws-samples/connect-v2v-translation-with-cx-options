@@ -8,6 +8,7 @@ import MicrophoneStream from "microphone-stream";
 import { getConnectURLS, addUpdateLocalStorageKey, getLocalStorageValueByKey, base64ToArrayBuffer, isStringUndefinedNullEmpty } from "./utils/commonUtility";
 import {
   AGENT_TRANSLATION_TO_AGENT_VOLUME,
+  AUDIO_FEEDBACK_FILE_PATH,
   CUSTOMER_TRANSLATION_TO_CUSTOMER_VOLUME,
   LOGGER_PREFIX,
   POLLY_ENGINES,
@@ -18,7 +19,7 @@ import {
 import { getLoginUrl, getValidTokens, handleRedirect, isAuthenticated, logout, setRedirectURI, startTokenRefreshTimer } from "./utils/authUtility";
 import { AudioStreamManager } from "./managers/AudioStreamManager";
 import { SessionTrackManager, TrackType } from "./managers/SessionTrackManager";
-import { checkMediaTrackSettings, createMicrophoneStream } from "./utils/transcribeUtils";
+import { createMicrophoneStream } from "./utils/transcribeUtils";
 import { listLanguages, translateText } from "./adapters/translateAdapter";
 import { describeVoices, synthesizeSpeech } from "./adapters/pollyAdapter";
 import { startAgentStreamTranscription, startCustomerStreamTranscription } from "./adapters/transcribeAdapter";
@@ -178,6 +179,10 @@ const bindUIElements = () => {
     speakerSaveButton: document.getElementById("speakerSaveButton"),
     micSaveButton: document.getElementById("micSaveButton"),
 
+    echoCancellationCheckbox: document.getElementById("echoCancellationCheckbox"),
+    noiseSuppressionCheckbox: document.getElementById("noiseSuppressionCheckbox"),
+    autoGainControlCheckbox: document.getElementById("autoGainControlCheckbox"),
+
     //Transcribe Customer UI Elements
     customerTranscribeLanguageSelect: document.getElementById("customerTranscribeLanguageSelect"),
     customerTranscribeLanguageSaveButton: document.getElementById("customerTranscribeLanguageSaveButton"),
@@ -188,6 +193,7 @@ const bindUIElements = () => {
     customerTranscriptionTextOutputDiv: document.getElementById("customerTranscriptionTextOutputDiv"),
     customerStreamMicCheckbox: document.getElementById("customerStreamMicCheckbox"),
     customerStreamTranslationCheckbox: document.getElementById("customerStreamTranslationCheckbox"),
+    customerAudioFeedbackEnabledCheckbox: document.getElementById("customerAudioFeedbackEnabledCheckbox"),
     //Translate Customer UI Elements
     customerTranslateFromLanguageSelect: document.getElementById("customerTranslateFromLanguageSelect"),
     customerTranslateToLanguageSelect: document.getElementById("customerTranslateToLanguageSelect"),
@@ -284,6 +290,14 @@ const initEventListeners = () => {
     }
   });
 
+  CCP_V2V.UI.customerAudioFeedbackEnabledCheckbox.addEventListener("change", (event) => {
+    if (event.target.checked) {
+      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.enableAudioFeedback(AUDIO_FEEDBACK_FILE_PATH);
+    } else {
+      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.disableAudioFeedback();
+    }
+  });
+
   //Translate Customer UI buttons
   CCP_V2V.UI.customerTranslateFromLanguageSaveButton.addEventListener("click", () => {
     addUpdateLocalStorageKey("customerTranslateFromLanguage", CCP_V2V.UI.customerTranslateFromLanguageSelect.value);
@@ -323,16 +337,17 @@ const initEventListeners = () => {
 
   CCP_V2V.UI.agentAudioFeedbackEnabledCheckbox.addEventListener("change", (event) => {
     if (event.target.checked) {
-      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.enableAudioFeedback();
+      if (ToAgentAudioStreamManager != null) ToAgentAudioStreamManager.enableAudioFeedback(AUDIO_FEEDBACK_FILE_PATH);
     } else {
-      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.disableAudioFeedback();
+      if (ToAgentAudioStreamManager != null) ToAgentAudioStreamManager.disableAudioFeedback();
     }
   });
 
   CCP_V2V.UI.agentStreamMicCheckbox.addEventListener("change", (event) => {
     const selectedMic = CCP_V2V.UI.micSelect.value;
+    const micConstraints = getMicrophoneConstraints(selectedMic);
     if (event.target.checked) {
-      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.startMicrophone(selectedMic);
+      if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.startMicrophone(micConstraints);
     } else {
       if (ToCustomerAudioStreamManager != null) ToCustomerAudioStreamManager.stopMicrophone();
     }
@@ -538,7 +553,8 @@ async function streamMic() {
     return;
   }
 
-  const micStreamAudioTrack = await RTCSessionTrackManager.createMicTrack(selectedMic);
+  const micConstraints = getMicrophoneConstraints(selectedMic);
+  const micStreamAudioTrack = await RTCSessionTrackManager.createMicTrack(micConstraints);
   //console.info(`${LOGGER_PREFIX} - streamMic`, micStreamAudioTrack);
   RTCSessionTrackManager.replaceTrack(micStreamAudioTrack, TrackType.MIC);
 }
@@ -562,9 +578,8 @@ async function testMicrophone() {
 
   try {
     // Request access to the selected microphone
-    const micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: selectedMic },
-    });
+    const micConstraints = getMicrophoneConstraints(selectedMic);
+    const micStream = await navigator.mediaDevices.getUserMedia(micConstraints);
 
     const volumeBar = document.getElementById("volumeBar");
     const agentMicTestManager = await getAgentMicTestManager();
@@ -766,8 +781,8 @@ async function customerStartTranscription() {
     }
 
     //Play the audio feedback to customer
-    if (CCP_V2V.UI.agentAudioFeedbackEnabledCheckbox.checked === true) {
-      ToCustomerAudioStreamManager.enableAudioFeedback("./assets/background_noise.wav");
+    if (CCP_V2V.UI.customerAudioFeedbackEnabledCheckbox.checked === true) {
+      ToCustomerAudioStreamManager.enableAudioFeedback(AUDIO_FEEDBACK_FILE_PATH);
     }
 
     //Get ready to stream To Customer
@@ -776,13 +791,12 @@ async function customerStartTranscription() {
 
     //getting the remote audio stream from the current RTC session into AmazonTranscribeFromCustomerAudioStream variable
     AmazonTranscribeFromCustomerAudioStream = await captureFromCustomerAudioStream();
-    console.info(
-      `${LOGGER_PREFIX} - customerStartTranscription - AmazonTranscribeFromCustomerAudioStream Sample Rate:`,
-      await checkMediaTrackSettings(AmazonTranscribeFromCustomerAudioStream.stream)
-    );
+    const customerStreamSampleRate = AudioContextMgr.getActualSampleRate();
+    console.info(`${LOGGER_PREFIX} - customerStartTranscription - AmazonTranscribeFromCustomerAudioStream Sample Rate: ${customerStreamSampleRate}`);
 
     startCustomerStreamTranscription(
       AmazonTranscribeFromCustomerAudioStream,
+      customerStreamSampleRate,
       CCP_V2V.UI.customerTranscribeLanguageSelect.value,
       CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value,
       handleCustomerTranscript,
@@ -822,9 +836,10 @@ async function customerStopTranscription() {
 async function agentStartTranscription() {
   try {
     const selectedMic = CCP_V2V.UI.micSelect.value;
+    const micConstraints = getMicrophoneConstraints(selectedMic);
 
     if (CCP_V2V.UI.agentAudioFeedbackEnabledCheckbox.checked === true) {
-      ToAgentAudioStreamManager.enableAudioFeedback("./assets/background_noise.wav");
+      ToAgentAudioStreamManager.enableAudioFeedback(AUDIO_FEEDBACK_FILE_PATH);
     }
 
     //Get ready to stream To Customer
@@ -832,20 +847,19 @@ async function agentStartTranscription() {
     RTCSessionTrackManager.replaceTrack(toCustomerAudioTrack, TrackType.POLLY);
 
     if (CCP_V2V.UI.agentStreamMicCheckbox.checked === true) {
-      await ToCustomerAudioStreamManager.startMicrophone(selectedMic);
+      await ToCustomerAudioStreamManager.startMicrophone(micConstraints);
       const micVolume = parseFloat(CCP_V2V.UI.agentStreamMicVolume.value);
       ToCustomerAudioStreamManager.setMicrophoneVolume(micVolume);
     }
 
     //getting the local Mic stream into AmazonTranscribeMicStream variable
-    AmazonTranscribeToCustomerAudioStream = await createMicrophoneStream(selectedMic);
-    console.info(
-      `${LOGGER_PREFIX} - agentStartTranscription - AmazonTranscribeToCustomerAudioStream Sample Rate:`,
-      await checkMediaTrackSettings(AmazonTranscribeToCustomerAudioStream.stream)
-    );
+    AmazonTranscribeToCustomerAudioStream = await createMicrophoneStream(micConstraints);
+    const agentStreamSampleRate = AudioContextMgr.getActualSampleRate();
+    console.info(`${LOGGER_PREFIX} - agentStartTranscription - AmazonTranscribeToCustomerAudioStream Sample Rate: ${agentStreamSampleRate}`);
 
     startAgentStreamTranscription(
       AmazonTranscribeToCustomerAudioStream,
+      agentStreamSampleRate,
       CCP_V2V.UI.agentTranscribeLanguageSelect.value,
       CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.value,
       handleAgentTranscript,
@@ -856,6 +870,8 @@ async function agentStartTranscription() {
     CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.disabled = true;
     CCP_V2V.UI.agentStartTranscriptionButton.disabled = true;
     CCP_V2V.UI.agentStopTranscriptionButton.disabled = false;
+
+    disableMicrophoneAndSpeakerSelection();
   } catch (error) {
     console.error(`${LOGGER_PREFIX} - agentStartTranscription - Error starting agent transcription:`, error);
     raiseError(`Error starting agent transcription: ${error}`);
@@ -877,6 +893,8 @@ async function agentStopTranscription() {
   CCP_V2V.UI.agentTranscribePartialResultsStabilitySelect.disabled = false;
   CCP_V2V.UI.agentStartTranscriptionButton.disabled = false;
   CCP_V2V.UI.agentStopTranscriptionButton.disabled = true;
+
+  enableMicrophoneAndSpeakerSelection();
 }
 
 function toggleAgentTranscriptionMute() {
@@ -888,7 +906,8 @@ function toggleAgentTranscriptionMute() {
       IsAgentTranscriptionMuted = !audioTrack.enabled;
       //Mute the Mic so it is not streamed to Customer
       const selectedMic = CCP_V2V.UI.micSelect.value;
-      IsAgentTranscriptionMuted ? ToCustomerAudioStreamManager.stopMicrophone() : ToCustomerAudioStreamManager.startMicrophone(selectedMic);
+      const micConstraints = getMicrophoneConstraints(selectedMic);
+      IsAgentTranscriptionMuted ? ToCustomerAudioStreamManager.stopMicrophone() : ToCustomerAudioStreamManager.startMicrophone(micConstraints);
       CCP_V2V.UI.agentMuteTranscriptionButton.textContent = IsAgentTranscriptionMuted ? "Unmute" : "Mute";
     }
   }
@@ -1209,6 +1228,8 @@ function cleanUpUI() {
 
   CCP_V2V.UI.customerStartTranscriptionButton.disabled = true;
   CCP_V2V.UI.agentStartTranscriptionButton.disabled = true;
+
+  enableMicrophoneAndSpeakerSelection();
 }
 
 function raiseError(errorMessage) {
@@ -1259,4 +1280,48 @@ function clearTranscriptCards() {
 
   // Remove all children except the last one (spacer)
   document.querySelectorAll(".transcript-container .transcript-card").forEach((card) => card.remove());
+}
+
+function getMicrophoneConstraints(deviceId) {
+  let microphoneConstraints = {
+    audio: {
+      deviceId: deviceId,
+      echoCancellation: CCP_V2V.UI.echoCancellationCheckbox.checked === true,
+      noiseSuppression: CCP_V2V.UI.noiseSuppressionCheckbox.checked === true,
+      autoGainControl: CCP_V2V.UI.autoGainControlCheckbox.checked === true,
+    },
+  };
+
+  console.info(`${LOGGER_PREFIX} - getMicrophoneConstraints: ${JSON.stringify(microphoneConstraints)}`);
+  return microphoneConstraints;
+}
+
+function enableMicrophoneAndSpeakerSelection() {
+  CCP_V2V.UI.micSelect.disabled = false;
+  CCP_V2V.UI.speakerSelect.disabled = false;
+
+  CCP_V2V.UI.testAudioButton.disabled = false;
+  CCP_V2V.UI.speakerSaveButton.disabled = false;
+
+  CCP_V2V.UI.testMicButton.disabled = false;
+  CCP_V2V.UI.micSaveButton.disabled = false;
+
+  CCP_V2V.UI.echoCancellationCheckbox.disabled = false;
+  CCP_V2V.UI.noiseSuppressionCheckbox.disabled = false;
+  CCP_V2V.UI.autoGainControlCheckbox.disabled = false;
+}
+
+function disableMicrophoneAndSpeakerSelection() {
+  CCP_V2V.UI.micSelect.disabled = true;
+  CCP_V2V.UI.speakerSelect.disabled = true;
+
+  CCP_V2V.UI.testAudioButton.disabled = true;
+  CCP_V2V.UI.speakerSaveButton.disabled = true;
+
+  CCP_V2V.UI.testMicButton.disabled = true;
+  CCP_V2V.UI.micSaveButton.disabled = true;
+
+  CCP_V2V.UI.echoCancellationCheckbox.disabled = true;
+  CCP_V2V.UI.noiseSuppressionCheckbox.disabled = true;
+  CCP_V2V.UI.autoGainControlCheckbox.disabled = true;
 }
