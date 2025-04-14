@@ -73,7 +73,7 @@ export async function translateText(fromLanguage, toLanguage, inputText) {
   return response.TranslatedText;
 }
 
-export async function listLanguages() {
+export async function listTranslateLanguages() {
   const listLanguagesCommand = new ListLanguagesCommand({
     MaxResults: 500,
   });

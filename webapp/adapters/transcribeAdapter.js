@@ -1,6 +1,6 @@
 // Copyright 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
-import { StartStreamTranscriptionCommand, TranscribeStreamingClient } from "@aws-sdk/client-transcribe-streaming";
+import { StartStreamTranscriptionCommand, TranscribeStreamingClient, LanguageCode } from "@aws-sdk/client-transcribe-streaming";
 import { TRANSCRIBE_CONFIG } from "../config";
 import { LOGGER_PREFIX, TRANSCRIBE_PARTIAL_RESULTS_STABILITY } from "../constants";
 import { getValidAwsCredentials, hasValidAwsCredentials } from "../utils/authUtility";
@@ -202,4 +202,9 @@ function joinTranscriptItems(transcriptItems = [], lastProcessedIndex = 0) {
     .trim()
     .replace(/\s+([.,!?])/g, "$1"); // Clean up spaces before punctuation
   return resultTranscriptString;
+}
+
+export function listStreamingLanguages() {
+  //returns an array of streaming language codes
+  return Object.values(LanguageCode);
 }

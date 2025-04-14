@@ -11,18 +11,15 @@ import {
   AUDIO_FEEDBACK_FILE_PATH,
   CUSTOMER_TRANSLATION_TO_CUSTOMER_VOLUME,
   LOGGER_PREFIX,
-  POLLY_ENGINES,
-  POLLY_LANGUAGE_CODES,
   TRANSCRIBE_PARTIAL_RESULTS_STABILITY,
-  TRANSCRIBE_STREAMING_LANGUAGES,
 } from "./constants";
 import { getLoginUrl, getValidTokens, handleRedirect, isAuthenticated, logout, setRedirectURI, startTokenRefreshTimer } from "./utils/authUtility";
 import { AudioStreamManager } from "./managers/AudioStreamManager";
 import { SessionTrackManager, TrackType } from "./managers/SessionTrackManager";
 import { createMicrophoneStream } from "./utils/transcribeUtils";
-import { listLanguages, translateText } from "./adapters/translateAdapter";
-import { describeVoices, synthesizeSpeech } from "./adapters/pollyAdapter";
-import { startAgentStreamTranscription, startCustomerStreamTranscription } from "./adapters/transcribeAdapter";
+import { listTranslateLanguages, translateText } from "./adapters/translateAdapter";
+import { describeVoices, listPollyEngines, listPollyLanguages, synthesizeSpeech } from "./adapters/pollyAdapter";
+import { listStreamingLanguages, startAgentStreamTranscription, startCustomerStreamTranscription } from "./adapters/transcribeAdapter";
 import { CONNECT_CONFIG } from "./config";
 import { AudioContextManager } from "./managers/AudioContextManager";
 import { AudioInputTestManager } from "./managers/InputTestManager";
@@ -709,7 +706,8 @@ async function getDevices() {
 }
 
 async function loadTranscribeLanguageCodes() {
-  TRANSCRIBE_STREAMING_LANGUAGES.forEach((language) => {
+  const transcribeStreamingLanguages = listStreamingLanguages();
+  transcribeStreamingLanguages.forEach((language) => {
     const option = document.createElement("option");
     option.value = language;
     option.textContent = language;
@@ -914,7 +912,7 @@ function toggleAgentTranscriptionMute() {
 }
 
 async function loadTranslateLanguageCodes() {
-  const translateLanguages = await listLanguages().catch((error) => {
+  const translateLanguages = await listTranslateLanguages().catch((error) => {
     console.error(`${LOGGER_PREFIX} - loadTranslateLanguageCodes - Error listing languages:`, error);
     raiseError(`Error listing languages: ${error}`);
     return [];
@@ -1050,7 +1048,8 @@ async function handleAgentTranscript(inputText) {
 }
 
 function loadPollyLanguageCodes() {
-  POLLY_LANGUAGE_CODES.forEach((languageCode) => {
+  const pollyLanguageCodes = listPollyLanguages();
+  pollyLanguageCodes.forEach((languageCode) => {
     const option = document.createElement("option");
     option.value = languageCode;
     option.textContent = languageCode;
@@ -1074,7 +1073,8 @@ function loadPollyLanguageCodes() {
 }
 
 function loadPollyEngines() {
-  POLLY_ENGINES.forEach((engine) => {
+  const pollyEngines = listPollyEngines();
+  pollyEngines.forEach((engine) => {
     const option = document.createElement("option");
     option.value = engine;
     option.textContent = engine;

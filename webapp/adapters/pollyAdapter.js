@@ -1,6 +1,6 @@
 // Copyright 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
-import { DescribeVoicesCommand, PollyClient, SynthesizeSpeechCommand } from "@aws-sdk/client-polly";
+import { DescribeVoicesCommand, PollyClient, SynthesizeSpeechCommand, LanguageCode, Engine } from "@aws-sdk/client-polly";
 import { hasValidAwsCredentials, getValidAwsCredentials } from "../utils/authUtility";
 import { HttpRequest } from "@aws-sdk/protocol-http";
 import { POLLY_CONFIG } from "../config";
@@ -58,6 +58,16 @@ async function getAmazonPollyClient() {
   }
 }
 
+export function listPollyLanguages() {
+  //returns an array of Polly language codes
+  return Object.values(LanguageCode);
+}
+
+export function listPollyEngines() {
+  //returns an array of Polly engines
+  return Object.values(Engine);
+}
+
 export async function describeVoices(languageCode, engine) {
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
   if (isStringUndefinedNullEmpty(engine)) throw new Error("engine is required");
@@ -65,6 +75,7 @@ export async function describeVoices(languageCode, engine) {
   const describeVoicesCommand = new DescribeVoicesCommand({
     LanguageCode: languageCode,
     Engine: engine,
+    IncludeAdditionalLanguageCodes: true,
   });
 
   const amazonPollyClient = await getAmazonPollyClient();
