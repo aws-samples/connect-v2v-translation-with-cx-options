@@ -798,7 +798,25 @@ async function customerStartTranscription() {
       CCP_V2V.UI.customerTranscribeLanguageSelect.value,
       CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value,
       handleCustomerTranscript,
-      handleCustomerPartialTranscript
+      handleCustomerPartialTranscript,
+      (identifiedLanguage) => {
+        const languageDiv = document.createElement('div');
+        languageDiv.className = 'detected-language';
+        languageDiv.textContent = `Detected: ${identifiedLanguage.languageCode} (${Math.round(identifiedLanguage.score * 100)}%)`;
+        
+        // Replace any existing language detection div
+        const existingLanguageDiv = document.querySelector('.detected-language');
+        if (existingLanguageDiv) {
+          existingLanguageDiv.replaceWith(languageDiv);
+        } else {
+          CCP_V2V.UI.customerTranscriptionTextOutputDiv.insertBefore(languageDiv, CCP_V2V.UI.customerTranscriptionTextOutputDiv.firstChild);
+        }
+
+        // Update translate fields
+        const langCode = identifiedLanguage.languageCode.split('-')[0];
+        CCP_V2V.UI.customerTranslateFromLanguageSelect.value = langCode;
+        CCP_V2V.UI.agentTranslateToLanguageSelect.value = langCode;
+      }
     );
 
     CCP_V2V.UI.customerTranscribeLanguageSelect.disabled = true;
