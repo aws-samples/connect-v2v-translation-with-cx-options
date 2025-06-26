@@ -1,11 +1,13 @@
 // Copyright 2025 Amazon.com, Inc. or its affiliates. All Rights Reserved.
 // SPDX-License-Identifier: MIT-0
-import { StartStreamTranscriptionCommand, TranscribeStreamingClient, LanguageCode } from "@aws-sdk/client-transcribe-streaming";
+import { StartStreamTranscriptionCommand, TranscribeStreamingClient } from "@aws-sdk/client-transcribe-streaming";
 import { TRANSCRIBE_CONFIG } from "../config";
 import { LOGGER_PREFIX, TRANSCRIBE_PARTIAL_RESULTS_STABILITY } from "../constants";
 import { getValidAwsCredentials, hasValidAwsCredentials } from "../utils/authUtility";
-import { isFunction, isObjectUndefinedNullEmpty, isStringUndefinedNullEmpty } from "../utils/commonUtility";
+import { isObjectUndefinedNullEmpty, isStringUndefinedNullEmpty } from "../utils/commonUtility";
 import { getTranscribeAudioStream, getTranscribeMicStream } from "../utils/transcribeUtils";
+
+export const listStreamingLanguages = () => ["en-US", "es-US", "fr-CA", "de-DE"];
 
 let _amazonTranscribeClientAgent;
 let _amazonTranscribeClientCustomer;
@@ -16,7 +18,6 @@ export async function getAmazonTranscribeClientAgent() {
       return _amazonTranscribeClientAgent;
     }
 
-    // Initialize AWS services with credentials
     const credentials = await getValidAwsCredentials();
     _amazonTranscribeClientAgent = new TranscribeStreamingClient({
       region: TRANSCRIBE_CONFIG.transcribeRegion,
@@ -40,7 +41,6 @@ export async function getAmazonTranscribeClientCustomer() {
       return _amazonTranscribeClientCustomer;
     }
 
-    // Initialize AWS services with credentials
     const credentials = await getValidAwsCredentials();
     _amazonTranscribeClientCustomer = new TranscribeStreamingClient({
       region: TRANSCRIBE_CONFIG.transcribeRegion,
@@ -64,19 +64,24 @@ export async function startCustomerStreamTranscription(
   languageCode,
   partialResultStability,
   onFinalTranscribeEvent,
-  onPartialTranscribeEvent
+  onPartialTranscribeEvent,
+  onLanguageIdentified
 ) {
   if (isObjectUndefinedNullEmpty(audioStream)) throw new Error("audioStream is required");
   if (!Number.isInteger(sampleRate)) throw new Error("sampleRate is required as integer");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
   if (isStringUndefinedNullEmpty(partialResultStability)) throw new Error("partialResultStability is required");
-  if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
-  if (isFunction(onPartialTranscribeEvent)) throw new Error("onPartialTranscribeEvent is required");
+  if (typeof onFinalTranscribeEvent !== 'function') throw new Error("onFinalTranscribeEvent is required");
+  if (typeof onPartialTranscribeEvent !== 'function') throw new Error("onPartialTranscribeEvent is required");
 
   const enablePartialResultsStabilization = TRANSCRIBE_PARTIAL_RESULTS_STABILITY.includes(partialResultStability);
 
+  console.log('Starting transcription with language detection...');
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
-    LanguageCode: languageCode,
+    // Enable automatic language detection instead of specifying a single language
+    IdentifyLanguage: true,
+    // Define the languages Transcribe can choose from during auto-detection
+    LanguageOptions: 'en-US,es-US,fr-CA,de-DE',
     MediaEncoding: "pcm",
     MediaSampleRateHertz: sampleRate,
     AudioStream: getTranscribeAudioStream(audioStream, sampleRate),
@@ -90,7 +95,27 @@ export async function startCustomerStreamTranscription(
   let lastProcessedIndex = 0;
 
   for await (const event of startStreamTranscriptionResponse.TranscriptResultStream) {
+    console.log('Raw event:', JSON.stringify(event.TranscriptEvent));
     const transcriptResults = event.TranscriptEvent.Transcript.Results;
+
+    // Check if language identification results are available in the transcript
+    if (transcriptResults[0]?.LanguageIdentification) {
+      const langId = transcriptResults[0].LanguageIdentification;
+      console.log('Language scores:', langId);
+      // Find the language with the highest confidence score from auto-detection
+      const bestMatch = langId.reduce((prev, curr) => 
+        (curr.Score > prev.Score) ? curr : prev
+      );
+      console.log('Best match:', bestMatch);
+      
+      // Callback to update UI with the automatically detected language
+      if (onLanguageIdentified) {
+        onLanguageIdentified({
+          languageCode: bestMatch.LanguageCode,
+          score: bestMatch.Score
+        });
+      }
+    }
 
     const getPartialTranscriptResult = getPartialTranscript(transcriptResults, lastProcessedIndex);
     if (getPartialTranscriptResult != null) onPartialTranscribeEvent(getPartialTranscriptResult.partialTranscript);
@@ -115,8 +140,8 @@ export async function startAgentStreamTranscription(
   if (!Number.isInteger(sampleRate)) throw new Error("sampleRate is required as integer");
   if (isStringUndefinedNullEmpty(languageCode)) throw new Error("languageCode is required");
   if (isStringUndefinedNullEmpty(partialResultStability)) throw new Error("partialResultStability is required");
-  if (isFunction(onFinalTranscribeEvent)) throw new Error("onFinalTranscribeEvent is required");
-  if (isFunction(onPartialTranscribeEvent)) throw new Error("onPartialTranscribeEvent is required");
+  if (typeof onFinalTranscribeEvent !== 'function') throw new Error("onFinalTranscribeEvent is required");
+  if (typeof onPartialTranscribeEvent !== 'function') throw new Error("onPartialTranscribeEvent is required");
 
   const enablePartialResultsStabilization = TRANSCRIBE_PARTIAL_RESULTS_STABILITY.includes(partialResultStability);
 
@@ -135,6 +160,7 @@ export async function startAgentStreamTranscription(
   let lastProcessedIndex = 0;
 
   for await (const event of startStreamTranscriptionResponse.TranscriptResultStream) {
+    console.log('Raw event data:', event.TranscriptEvent);
     const transcriptResults = event.TranscriptEvent.Transcript.Results;
 
     const getPartialTranscriptResult = getPartialTranscript(transcriptResults, lastProcessedIndex);
@@ -152,20 +178,18 @@ function getPartialTranscript(transcriptResults = [], lastProcessedIndex = 0) {
   if (transcriptResults.length === 0) return null;
   if (transcriptResults[0].IsPartial !== true) return null;
 
-  // Handle regular partial transcript - to update the UI as quickly as possible
   const partialTranscriptItems = transcriptResults[0].Alternatives[0].Items;
   if (partialTranscriptItems?.length > 0) {
-    // Get only the items after lastProcessedIndex
     const partialTranscript = joinTranscriptItems(partialTranscriptItems, lastProcessedIndex);
     return { partialTranscript };
   }
+  return null;
 }
 
 function getFinalTranscript(transcriptResults = [], lastProcessedIndex = 0, enablePartialResultsStabilization = false) {
   if (transcriptResults.length === 0) return null;
   if (transcriptResults[0].IsPartial === true && enablePartialResultsStabilization === false) return null;
 
-  //Handle regular final transcript
   if (transcriptResults[0].IsPartial === false) {
     const finalTranscriptItems = transcriptResults[0].Alternatives[0].Items;
     if (finalTranscriptItems?.length > 0) {
@@ -174,37 +198,24 @@ function getFinalTranscript(transcriptResults = [], lastProcessedIndex = 0, enab
     }
   }
 
-  // If transcript is partial, check if we have a stable transcript
-  // Stable transcript is a transcript where all items are stable and the last item is a punctuation
-
-  // Find the index of the first punctuation after the lastProcessedIndex
   const firstSegmentEndIndex = transcriptResults[0].Alternatives[0].Items.findIndex(
     (item, index) => index >= lastProcessedIndex && item.Type === "punctuation" && [",", ".", "!", "?"].includes(item.Content)
   );
-  if (firstSegmentEndIndex === -1) return null; // We were not able to find a punctuation
+  if (firstSegmentEndIndex === -1) return null;
 
-  // Get all items up to and including the punctuation
   const segmentItems = transcriptResults[0].Alternatives[0].Items.slice(lastProcessedIndex, firstSegmentEndIndex + 1);
-
-  // Check if ALL items in this segment are stable
   const allItemsAreStable = segmentItems.every((item) => item.Stable === true);
-  if (allItemsAreStable === false) return null; // We were not able to find a punctuation
+  if (allItemsAreStable === false) return null;
 
-  const stableTranscript = joinTranscriptItems(segmentItems);
-  return { finalTranscript: stableTranscript, lastProcessedIndex: firstSegmentEndIndex + 1 };
+  const finalTranscript = joinTranscriptItems(segmentItems, 0);
+  return { finalTranscript, lastProcessedIndex: firstSegmentEndIndex + 1 };
 }
 
 function joinTranscriptItems(transcriptItems = [], lastProcessedIndex = 0) {
-  const resultTranscriptString = transcriptItems
+  return transcriptItems
     .slice(lastProcessedIndex)
     .map((item) => item.Content)
     .join(" ")
     .trim()
-    .replace(/\s+([.,!?])/g, "$1"); // Clean up spaces before punctuation
-  return resultTranscriptString;
-}
-
-export function listStreamingLanguages() {
-  //returns an array of streaming language codes
-  return Object.values(LanguageCode);
+    .replace(/\s+([.,!?])/g, "$1");
 }
