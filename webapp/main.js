@@ -798,7 +798,30 @@ async function customerStartTranscription() {
       CCP_V2V.UI.customerTranscribeLanguageSelect.value,
       CCP_V2V.UI.customerTranscribePartialResultsStabilitySelect.value,
       handleCustomerTranscript,
-      handleCustomerPartialTranscript
+      handleCustomerPartialTranscript,
+      // Callback function that handles automatically detected language results
+      (identifiedLanguage) => {
+        // Create UI element to display the detected language and confidence score
+        const languageDiv = document.createElement('div');
+        languageDiv.className = 'detected-language';
+        languageDiv.textContent = `Detected: ${identifiedLanguage.languageCode} (${Math.round(identifiedLanguage.score * 100)}%)`;
+        
+        // Replace any existing language detection display
+        const existingLanguageDiv = document.querySelector('.detected-language');
+        if (existingLanguageDiv) {
+          existingLanguageDiv.replaceWith(languageDiv);
+        } else {
+          CCP_V2V.UI.customerTranscriptionTextOutputDiv.insertBefore(languageDiv, CCP_V2V.UI.customerTranscriptionTextOutputDiv.firstChild);
+        }
+
+        // Automatically set translation language variables based on detected language
+        // Extract base language code (e.g., 'en' from 'en-US')
+        const langCode = identifiedLanguage.languageCode.split('-')[0];
+        // Set customer's source language for translation (what they're speaking)
+        CCP_V2V.UI.customerTranslateFromLanguageSelect.value = langCode;
+        // Set agent's target language for translation (what agent should receive)
+        CCP_V2V.UI.agentTranslateToLanguageSelect.value = langCode;
+      }
     );
 
     CCP_V2V.UI.customerTranscribeLanguageSelect.disabled = true;

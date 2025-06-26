@@ -134,11 +134,11 @@
                   <button id="customerStopTranscriptionButton" disabled>Stop Transcription</button>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="customerStreamMicCheckbox" name="customerStreamMicCheckbox" checked />
+                  <input type="checkbox" id="customerStreamMicCheckbox" name="customerStreamMicCheckbox" />
                   <label for="customerStreamMicCheckbox">Stream Customer Mic to Agent</label>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="customerStreamTranslationCheckbox" name="customerStreamTranslationCheckbox" checked />
+                  <input type="checkbox" id="customerStreamTranslationCheckbox" name="customerStreamTranslationCheckbox" />
                   <label for="customerStreamTranslationCheckbox">Stream Customer Translation to Customer</label>
                 </div>
                 <div class="checkbox-group">
@@ -147,6 +147,7 @@
                 </div>
                 <div class="output-group">
                   <label for="customerTranscriptionTextOutputDiv">Customer Transcription:</label>
+                  <div id="customerLanguageDiv" class="detected-language"></div>
                   <div id="customerTranscriptionTextOutputDiv" class="output-text"></div>
                 </div>
               </div>
@@ -219,15 +220,15 @@
                   <button id="agentMuteTranscriptionButton">Mute</button>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="agentStreamTranslationCheckbox" name="StreamTranslationCheckbox" checked />
+                  <input type="checkbox" id="agentStreamTranslationCheckbox" name="StreamTranslationCheckbox" />
                   <label for="agentStreamTranslationCheckbox">Stream Agent Translation to Agent</label>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="agentStreamMicCheckbox" name="agentStreamMicCheckbox" checked />
+                  <input type="checkbox" id="agentStreamMicCheckbox" name="agentStreamMicCheckbox" />
                   <label for="agentStreamMicCheckbox">Stream Agent Mic to Customer</label>
                 </div>
                 <div class="checkbox-group">
-                  <input type="checkbox" id="agentAudioFeedbackEnabledCheckbox" name="agentAudioFeedbackEnabledCheckbox" checked />
+                  <input type="checkbox" id="agentAudioFeedbackEnabledCheckbox" name="agentAudioFeedbackEnabledCheckbox" checked/>
                   <label for="agentAudioFeedbackEnabledCheckbox">Enable Agent Audio Feedback</label>
                 </div>
                 <div class="volume-group">
