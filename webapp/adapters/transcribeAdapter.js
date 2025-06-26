@@ -78,7 +78,9 @@ export async function startCustomerStreamTranscription(
 
   console.log('Starting transcription with language detection...');
   const startStreamTranscriptionCommand = new StartStreamTranscriptionCommand({
+    // Enable automatic language detection instead of specifying a single language
     IdentifyLanguage: true,
+    // Define the languages Transcribe can choose from during auto-detection
     LanguageOptions: 'en-US,es-US,fr-CA,de-DE',
     MediaEncoding: "pcm",
     MediaSampleRateHertz: sampleRate,
@@ -96,14 +98,17 @@ export async function startCustomerStreamTranscription(
     console.log('Raw event:', JSON.stringify(event.TranscriptEvent));
     const transcriptResults = event.TranscriptEvent.Transcript.Results;
 
+    // Check if language identification results are available in the transcript
     if (transcriptResults[0]?.LanguageIdentification) {
       const langId = transcriptResults[0].LanguageIdentification;
       console.log('Language scores:', langId);
+      // Find the language with the highest confidence score from auto-detection
       const bestMatch = langId.reduce((prev, curr) => 
         (curr.Score > prev.Score) ? curr : prev
       );
       console.log('Best match:', bestMatch);
       
+      // Callback to update UI with the automatically detected language
       if (onLanguageIdentified) {
         onLanguageIdentified({
           languageCode: bestMatch.LanguageCode,
